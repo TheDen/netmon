@@ -27,7 +27,7 @@ def checkdevice(sysdir, device):
   return True
 
 def checkos():
-  if sys.platform != 'linux':
+  if 'linux' not in sys.platform:
     print('Not a linux machine.')
     sys.exit()
 
