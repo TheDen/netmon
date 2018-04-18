@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='netmon',
-  version='0.1.0',
+  version='0.1.1',
   author='Denis Khshaba',
   author_email='deniskhoshaba@gmail.com',
   scripts=['netmon'],

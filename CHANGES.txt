@@ -1,1 +1,2 @@
+0.1.1, 18/04/18 -- Update heuristic network discovery
 0.1.0, 18/04/18 -- Initial release.
