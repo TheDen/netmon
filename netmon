@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import time
+import signal
+import cursor
+import curses
+from ascii_graph import Pyasciigraph
+
+def rxtxcount(rxpath, txpath):
+  rx1 = int(open(rxpath).read().replace('\n',''))
+  tx1 = int(open(txpath).read().replace('\n',''))
+  time.sleep(1)
+  rx2 = int(open(rxpath).read().replace('\n',''))
+  tx2 = int(open(txpath).read().replace('\n',''))
+  return abs(rx1-rx2)*0.001, abs(tx1-tx2)*0.001, rx2*0.000001, tx2*0.000001
+
+# check if the network device exists and is operating
+def checkdevice(sysdir, device):
+
+  if device not in os.listdir(sysdir):
+    return False
+
+  if open(sysdir + device + '/operstate').read().replace('\n','') != 'up':
+    return False
+  return True
+
+def checkos():
+  if sys.platform != 'linux':
+    print('Not a linux machine.')
+    sys.exit()
+
+# clean up when sigterm or siginit is sent
+def sigterm_handler(signal, frame):
+  cursor.show()
+  curses.echo()
+  curses.nocbreak()
+  curses.endwin()
+  sys.exit()
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+signal.signal(signal.SIGINT, sigterm_handler)
+
+def main():
+
+  if len(sys.argv) > 1 and 'help' or '--help' in sys.argv[1:]:
+    print('usage: {0} [network device]'.format(sys.argv[0]))
+    sys.exit()
+
+  checkos()
+
+  # if no network dev is passed, try default devices
+  sysdir = '/sys/class/net/'
+  if len(sys.argv) > 1 and checkdevice(sysdir, sys.argv[1]):
+    device = sys.argv[1]
+  elif checkdevice(sysdir, 'wlan0'):
+    device = 'eth0'
+  elif checkdevice(sysdir, 'en0'):
+    device = 'en0'
+  elif checkdevice(sysdir, 'eth0'):
+    device = 'eth0'
+  else:
+    print('no appropriate device found')
+    sys.exit()
+
+
+  # init cursors env
+  cursor.hide()
+  stdscr = curses.initscr()
+  stdscr.clear()
+  cursor.hide()
+  curses.noecho()
+  curses.cbreak()
+
+  # init graph params
+  graph = Pyasciigraph(
+    line_length=120,
+    min_graph_length=50,
+    separator_length=2,
+    multivalue=True,
+    human_readable='si',
+    graphsymbol='*',
+    float_format='{0:,.2f}',
+    force_max_value=100,
+  )
+
+  rxbytepath = sysdir + device + '/statistics/rx_bytes'
+  txbytepath = sysdir + device + '/statistics/tx_bytes'
+  while True:
+    sample = rxtxcount(rxbytepath, txbytepath)
+    graphdata = graph.graph('network monitor ({0})'.format(device), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
+    stdscr.addstr(0,0,graphdata[0])
+    stdscr.addstr(1,0,graphdata[1])
+    stdscr.addstr(2,0,graphdata[2])
+    stdscr.addstr(3,0,graphdata[3])
+    stdscr.addstr(4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
+    stdscr.addstr(5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+    stdscr.refresh()
+
+if __name__ == "__main__":
+    main()

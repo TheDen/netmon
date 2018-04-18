@@ -1,0 +1,2 @@
+ascii_graph==1.4.3
+cursor==1.2.0
