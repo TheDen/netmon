@@ -26,6 +26,14 @@ def checkdevice(sysdir, device):
     return False
   return True
 
+# find all network devices that are up
+def finddevices(sysdir):
+  devices = []
+  for i in os.listdir(sysdir):
+    if open(sysdir + i + '/operstate').read().replace('\n','') == 'up':
+      devices.append(i)
+  return devices
+
 def checkos():
   if 'linux' not in sys.platform:
     print('Not a linux machine.')
@@ -44,26 +52,25 @@ signal.signal(signal.SIGINT, sigterm_handler)
 
 def main():
 
-  if len(sys.argv) > 1 and 'help' or '--help' in sys.argv[1:]:
-    print('usage: {0} [network device]'.format(sys.argv[0]))
+  if (len(sys.argv) > 1) and 'help' in sys.argv[1]:
+    print('usage: netmon [network device]'.format(sys.argv[0]))
     sys.exit()
 
   checkos()
 
-  # if no network dev is passed, try default devices
   sysdir = '/sys/class/net/'
-  if len(sys.argv) > 1 and checkdevice(sysdir, sys.argv[1]):
-    device = sys.argv[1]
-  elif checkdevice(sysdir, 'wlan0'):
-    device = 'eth0'
-  elif checkdevice(sysdir, 'en0'):
-    device = 'en0'
-  elif checkdevice(sysdir, 'eth0'):
-    device = 'eth0'
-  else:
-    print('no appropriate device found')
-    sys.exit()
+  devices = []
 
+  if len(sys.argv) > 1:
+    for i in sys.argv:
+      if checkdevice(sysdir, i):
+        devices.append(i)
+
+  if not devices:
+    devices = finddevices(sysdir)
+
+  if not devices:
+    print('no appropriate device found')
 
   # init cursors env
   cursor.hide()
@@ -85,18 +92,19 @@ def main():
     force_max_value=100,
   )
 
-  rxbytepath = sysdir + device + '/statistics/rx_bytes'
-  txbytepath = sysdir + device + '/statistics/tx_bytes'
-  while True:
-    sample = rxtxcount(rxbytepath, txbytepath)
-    graphdata = graph.graph('network monitor ({0})'.format(device), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
-    stdscr.addstr(0,0,graphdata[0])
-    stdscr.addstr(1,0,graphdata[1])
-    stdscr.addstr(2,0,graphdata[2])
-    stdscr.addstr(3,0,graphdata[3])
-    stdscr.addstr(4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
-    stdscr.addstr(5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
-    stdscr.refresh()
+  for idx, val in enumerate(devices):
+    rxbytepath = sysdir + val + '/statistics/rx_bytes'
+    txbytepath = sysdir + val + '/statistics/tx_bytes'
+    while True:
+      sample = rxtxcount(rxbytepath, txbytepath)
+      graphdata = graph.graph('network monitor ({0})'.format(str(val)), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
+      stdscr.addstr(idx,0,graphdata[0])
+      stdscr.addstr(idx+1,0,graphdata[1])
+      stdscr.addstr(idx+2,0,graphdata[2])
+      stdscr.addstr(idx+3,0,graphdata[3])
+      stdscr.addstr(idx+4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
+      stdscr.addstr(idx+5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+      stdscr.refresh()
 
 if __name__ == "__main__":
     main()
