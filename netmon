@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import threading
 import signal
 import cursor
 import curses
@@ -47,18 +48,19 @@ def sigterm_handler(signal, frame):
   curses.endwin()
   sys.exit()
 
+def keypress(stdscr):
+  while stdscr.getch() != ord('q'):
+    time.sleep(0.2)
+
 signal.signal(signal.SIGTERM, sigterm_handler)
 signal.signal(signal.SIGINT, sigterm_handler)
 
-def main():
-
+def getdevices(sysdir):
   if (len(sys.argv) > 1) and 'help' in sys.argv[1]:
     print('usage: netmon [network device]'.format(sys.argv[0]))
     sys.exit()
 
   checkos()
-
-  sysdir = '/sys/class/net/'
   devices = []
 
   if len(sys.argv) > 1:
@@ -71,16 +73,29 @@ def main():
 
   if not devices:
     print('no appropriate device found')
+    sys.exit()
 
-  # init cursors env
+  return devices
+
+# init cursors env
+def initscreen():
   cursor.hide()
   stdscr = curses.initscr()
   stdscr.clear()
   cursor.hide()
   curses.noecho()
   curses.cbreak()
+  stdscr.nodelay(True)
+  return stdscr
 
-  # init graph params
+def destroyscreen():
+  cursor.show()
+  curses.echo()
+  curses.nocbreak()
+  curses.endwin()
+
+# init graph params
+def initgraph():
   graph = Pyasciigraph(
     line_length=120,
     min_graph_length=50,
@@ -91,20 +106,47 @@ def main():
     float_format='{0:,.2f}',
     force_max_value=100,
   )
+  return graph
 
-  for idx, val in enumerate(devices):
-    rxbytepath = sysdir + val + '/statistics/rx_bytes'
-    txbytepath = sysdir + val + '/statistics/tx_bytes'
-    while True:
-      sample = rxtxcount(rxbytepath, txbytepath)
-      graphdata = graph.graph('network monitor ({0})'.format(str(val)), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
-      stdscr.addstr(idx,0,graphdata[0])
-      stdscr.addstr(idx+1,0,graphdata[1])
-      stdscr.addstr(idx+2,0,graphdata[2])
-      stdscr.addstr(idx+3,0,graphdata[3])
-      stdscr.addstr(idx+4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
-      stdscr.addstr(idx+5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+def drawdata(idx, val, sysdir, stdscr, graph):
+  base = idx*7
+  rxbytepath = sysdir + val + '/statistics/rx_bytes'
+  txbytepath = sysdir + val + '/statistics/tx_bytes'
+  sample = rxtxcount(rxbytepath, txbytepath)
+  graphdata = graph.graph('device: {0}'.format(str(val)), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
+  stdscr.addstr(base+0, 0, graphdata[0])
+  stdscr.addstr(base+1, 0, graphdata[1])
+  stdscr.addstr(base+2, 0, graphdata[2])
+  stdscr.addstr(base+3, 0, graphdata[3])
+  stdscr.addstr(base+4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
+  stdscr.addstr(base+5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+
+def run(sysdir, stdscr, devices, graph):
+  # first clean draw
+  try:
+    for idx, val in enumerate(devices):
+      drawdata(idx, val, sysdir, stdscr, graph)
+    stdscr.refresh()
+  except Exception as e:
+    print(e)
+    sigterm_handler(None, None)
+  thread = threading.Thread(target=keypress, args=(stdscr,))
+  thread.daemon = True
+  thread.start()
+  try:
+    while thread.is_alive():
+      for idx, val in enumerate(devices):
+        drawdata(idx, val, sysdir, stdscr, graph)
       stdscr.refresh()
+  except Exception as e:
+    print(e)
+    sigterm_handler(None, None)
 
 if __name__ == "__main__":
-    main()
+  sysdir = '/sys/class/net/'
+  devices = getdevices(sysdir)
+  stdscr = initscreen()
+  graph = initgraph()
+  run(sysdir, stdscr, devices, graph)
+  destroyscreen()
+  sys.exit()
