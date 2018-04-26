@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import math
 import threading
 import signal
 import cursor
@@ -28,12 +29,10 @@ def checkdevice(sysdir, device):
   return True
 
 # find all network devices that are up
-def finddevices(sysdir):
-  devices = []
+def finddevice(sysdir):
   for i in os.listdir(sysdir):
     if open(sysdir + i + '/operstate').read().replace('\n','') == 'up':
-      devices.append(i)
-  return devices
+      return i
 
 def checkos():
   if 'linux' not in sys.platform:
@@ -55,33 +54,35 @@ def keypress(stdscr):
 signal.signal(signal.SIGTERM, sigterm_handler)
 signal.signal(signal.SIGINT, sigterm_handler)
 
-def getdevices(sysdir):
+def getdevice(sysdir):
   if (len(sys.argv) > 1) and 'help' in sys.argv[1]:
     print('usage: netmon [network device]'.format(sys.argv[0]))
     sys.exit()
 
   checkos()
-  devices = []
 
+  device = ''
   if len(sys.argv) > 1:
     for i in sys.argv:
       if checkdevice(sysdir, i):
-        devices.append(i)
+        device = i
 
-  if not devices:
-    devices = finddevices(sysdir)
+  if not device:
+    device = finddevice(sysdir)
 
-  if not devices:
+  if not device:
     print('no appropriate device found')
     sys.exit()
 
-  return devices
+  return device
 
 # init cursors env
 def initscreen():
   cursor.hide()
   stdscr = curses.initscr()
   stdscr.clear()
+  curses.start_color()
+  curses.use_default_colors()
   cursor.hide()
   curses.noecho()
   curses.cbreak()
@@ -95,58 +96,82 @@ def destroyscreen():
   curses.endwin()
 
 # init graph params
-def initgraph():
+def initgraph(maxvalue, rows, columns):
   graph = Pyasciigraph(
-    line_length=120,
-    min_graph_length=50,
-    separator_length=2,
+    line_length=columns,
+    min_graph_length=1,
+    separator_length=1,
     multivalue=True,
-    human_readable='si',
     graphsymbol='*',
-    float_format='{0:,.2f}',
-    force_max_value=100,
+    float_format='{0:,.0f}',
+    force_max_value=maxvalue,
   )
   return graph
 
-def drawdata(idx, val, sysdir, stdscr, graph):
-  base = idx*7
-  rxbytepath = sysdir + val + '/statistics/rx_bytes'
-  txbytepath = sysdir + val + '/statistics/tx_bytes'
-  sample = rxtxcount(rxbytepath, txbytepath)
-  graphdata = graph.graph('device: {0}'.format(str(val)), [('received (KB/s)', sample[0]), ('sent (KB/s)', sample[1])])
-  stdscr.addstr(base+0, 0, graphdata[0])
-  stdscr.addstr(base+1, 0, graphdata[1])
-  stdscr.addstr(base+2, 0, graphdata[2])
-  stdscr.addstr(base+3, 0, graphdata[3])
-  stdscr.addstr(base+4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
-  stdscr.addstr(base+5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+def getcolor(maxvalue, sample):
+  if 0 < maxvalue <= 100:
+    return curses.COLOR_GREEN
+  elif 100 < maxvalue <= 1000:
+    return curses.COLOR_YELLOW
+  elif maxvalue >= 1000:
+    return curses.COLOR_RED
+  elif maxvalue >= 10000:
+    return curses.COLOR_MAGENTA
+  else:
+    return curses.COLOR_CYAN
 
-def run(sysdir, stdscr, devices, graph):
-  # first clean draw
-  try:
-    for idx, val in enumerate(devices):
-      drawdata(idx, val, sysdir, stdscr, graph)
-    stdscr.refresh()
-  except Exception as e:
-    print(e)
-    sigterm_handler(None, None)
+def setmaxvalue(sample):
+  val = max(len(str(int(math.ceil(sample[0])))),len(str(int(math.ceil(sample[1])))))
+  return 10**(val)
+
+def drawdata(sample, device, sysdir, stdscr, graph, maxvalue, columns):
+  graphdata = graph.graph('device: {0}'.format(str(device)), [('KB/s Down', sample[0]), ('KB/s Up', sample[1])])
+  stdscr.addstr(0, 0, graphdata[0])
+  stdscr.addstr(1, 0, graphdata[1])
+  if sample[0] > sample[1]:
+    curses.init_pair(1, getcolor(maxvalue, sample[0]), -1)
+    stdscr.addstr(2, 0, graphdata[2], curses.color_pair(1))
+    stdscr.addstr(3, 0, graphdata[3])
+  elif sample[0] == sample[1]:
+    curses.init_pair(1, curses.COLOR_CYAN, -1)
+    stdscr.addstr(2, 0, graphdata[2], curses.color_pair(1))
+    stdscr.addstr(3, 0, graphdata[3], curses.color_pair(1))
+  else:
+    curses.init_pair(1, getcolor(maxvalue, sample[1]), -1)
+    stdscr.addstr(2, 0, graphdata[2])
+    stdscr.addstr(3, 0, graphdata[3], curses.color_pair(1))
+  stdscr.addstr(4, 0, "Total received: {0:.2f} MBs".format(sample[2]))
+  stdscr.addstr(5, 0, "Total sent: {0:.2f} MBs".format(sample[3]))
+  stdscr.refresh()
+
+def run(sysdir, stdscr, device, graph, maxvalue, rows, columns):
+  rxbytepath = sysdir + device + '/statistics/rx_bytes'
+  txbytepath = sysdir + device + '/statistics/tx_bytes'
   thread = threading.Thread(target=keypress, args=(stdscr,))
   thread.daemon = True
   thread.start()
   try:
     while thread.is_alive():
-      for idx, val in enumerate(devices):
-        drawdata(idx, val, sysdir, stdscr, graph)
-      stdscr.refresh()
+      if curses.is_term_resized(rows, columns):
+        rows, columns = stdscr.getmaxyx()
+        graph = initgraph(maxvalue, rows, columns)
+        curses.resizeterm(rows, columns)
+        stdscr.refresh()
+      sample = rxtxcount(rxbytepath, txbytepath)
+      maxvalue = setmaxvalue(sample)
+      graph = initgraph(maxvalue, rows, columns)
+      drawdata(sample, device, sysdir, stdscr, graph, maxvalue, columns)
   except Exception as e:
     print(e)
     sigterm_handler(None, None)
 
 if __name__ == "__main__":
   sysdir = '/sys/class/net/'
-  devices = getdevices(sysdir)
+  device = getdevice(sysdir)
   stdscr = initscreen()
-  graph = initgraph()
-  run(sysdir, stdscr, devices, graph)
+  maxvalue = 100.0
+  rows, columns = stdscr.getmaxyx()
+  graph = initgraph(maxvalue, rows, columns)
+  run(sysdir, stdscr, device, graph, maxvalue, rows, columns)
   destroyscreen()
   sys.exit()
