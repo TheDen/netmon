@@ -2,7 +2,7 @@
 
 Terminal network monitor for linux
 
-## Install 
+## Install
 
 `pip install netmon`
 
