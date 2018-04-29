@@ -10,7 +10,7 @@ except:
 
 setup(
   name='netmon',
-  version='0.1.45',
+  version='0.2.0',
   author='Denis Khshaba',
   author_email='deniskhoshaba@gmail.com',
   scripts=['netmon'],
