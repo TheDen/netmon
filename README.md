@@ -2,6 +2,8 @@
 
 Command line network monitor for linux. Written in python and uses curses.
 
+[![asciicast](https://asciinema.org/a/178907.png)](https://asciinema.org/a/178907)
+
 ## Install
 
 `pip install netmon`
