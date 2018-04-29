@@ -4,6 +4,8 @@ netmon
 Command line network monitor for linux. Written in python and uses
 curses.
 
+`asciicast <https://asciinema.org/a/178907>`__
+
 Install
 -------
 
