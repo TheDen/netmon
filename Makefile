@@ -12,3 +12,4 @@ convert:
 
 clean:
 	git clean -fdx
+.PHONY: clean
