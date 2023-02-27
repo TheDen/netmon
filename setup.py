@@ -19,5 +19,8 @@ setup(
     license="GPL-2.0",
     description="network monitor for linux",
     long_description=long_description,
-    install_requires=["https://github.com/nyurik/py-ascii-graph/archive/refs/heads/fix-python310.zip", "cursor"],
+    install_requires=[
+        "ascii_graph @ https://github.com/nyurik/py-ascii-graph/archive/refs/heads/fix-python310.zip",
+        "cursor",
+    ],
 )
