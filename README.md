@@ -6,8 +6,9 @@ Command line network monitor for linux. Written in python.
 
 ## Install
 
-`pip install netmon`
-
+```
+pip install git+https://github.com/TheDen/netmon
+```
 ## Run
 
 `$ netmon`

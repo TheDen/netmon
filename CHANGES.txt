@@ -1,4 +1,4 @@
-9.3.9, 28/-2/23 -- Support python 3.11
+0.3.0, 28/-2/23 -- Support python 3.11
 0.2.0, 29/04/18 -- Proper release.
 0.1.4x, 24/04/18 -- Update setup.
 0.1.3, 24/04/18 -- Add colors and screen resizing.
