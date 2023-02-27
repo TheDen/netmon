@@ -10,7 +10,7 @@ except:
 
 setup(
     name="netmon",
-    version="0.2.0",
+    version="0.3.0",
     author="Denis Khshaba",
     author_email="deniskhoshaba@gmail.com",
     scripts=["netmon"],
@@ -19,5 +19,5 @@ setup(
     license="GPL-2.0",
     description="network monitor for linux",
     long_description=long_description,
-    install_requires=["ascii_graph", "cursor"],
+    install_requires=["https://github.com/nyurik/py-ascii-graph/archive/refs/heads/fix-python310.zip", "cursor"],
 )
