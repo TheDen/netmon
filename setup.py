@@ -10,7 +10,7 @@ except:
 
 setup(
     name="netmon",
-    version="0.5.1",
+    version="0.5.2",
     author="Denis Khoshaba",
     author_email="pypi@theden.sh",
     scripts=["netmon"],
