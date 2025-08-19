@@ -27,7 +27,6 @@ def rxtxcount(rxpath, txpath):
 
 # check if the network device exists and is operating
 def checkdevice(sysdir, device):
-
     if device not in os.listdir(sysdir):
         return False
 

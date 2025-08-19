@@ -6,13 +6,13 @@ try:
     long_description = f.read()
     f.close()
 except:
-    long_description = ""
+    long_description = "Network Monitor for Linux"
 
 setup(
     name="netmon",
-    version="0.4.0",
-    author="Denis Khshaba",
-    author_email="deniskhoshaba@gmail.com",
+    version="0.5.1",
+    author="Denis Khoshaba",
+    author_email="pypi@theden.sh",
     scripts=["netmon"],
     url="https://github.com/theden/netmon",
     keywords=["network", "monitor", "linux"],
@@ -20,7 +20,7 @@ setup(
     description="network monitor for linux",
     long_description=long_description,
     install_requires=[
-        "ascii_graph @ https://github.com/nyurik/py-ascii-graph/archive/refs/heads/fix-python310.zip",
+        "ascii-graph",
         "cursor",
     ],
 )
